@@ -25,12 +25,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/get-products',    [ProductController::class, 'index']);
 
     // AI Studio
-    Route::post('/ai/generate', [AIController::class, 'generate']);
+    Route::post('/ai/generate',            [AIController::class, 'generate']);
     Route::match(['get', 'post'], '/ai/generate-content', [AIController::class, 'generate']);
     Route::post('/ai/generate-by-feature', [AIController::class, 'generateByFeature']);
     Route::get('/ai/history/{product_id}', [AIController::class, 'history']);
 
     // Transactions
+    Route::get('/transactions/history',      [TransactionController::class, 'history']);      // ← BARU
+    Route::get('/transactions/daily-report', [TransactionController::class, 'dailyReport']);
     Route::get('/reports/daily',             [TransactionController::class, 'dailyReport']);
     Route::post('/transactions',             [TransactionController::class, 'store']);
     Route::post('/create-transaction',       [TransactionController::class, 'store']);
