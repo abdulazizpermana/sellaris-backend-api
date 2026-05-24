@@ -42,4 +42,24 @@ class TransactionController extends Controller
             ],
         ]);
     }
+
+    public function history(Request $request)
+    {
+        $transactions = \App\Models\Transaction::with('product')
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->paginate(15);
+
+        return response()->json([
+            'success' => true,
+            'data'    => TransactionResource::collection($transactions),
+            'meta'    => [
+                'total'        => $transactions->total(),
+                'current_page' => $transactions->currentPage(),
+                'last_page'    => $transactions->lastPage(),
+                'per_page'     => $transactions->perPage(),
+            ],
+        ]);
+    }
 }
