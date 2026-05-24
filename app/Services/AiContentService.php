@@ -23,20 +23,30 @@ class AiContentService
 
     public function generateContent(Product $product, string $type = 'caption'): AiContent
     {
+        Log::info([
+            'REQUEST_TYPE' => $type,
+        ]);
+
         $prompt = $this->buildPrompt($product, $type);
         $rawResponse = $this->callGeminiApi($prompt);
         $content = $this->parseResponse($rawResponse);
 
-        return AiContent::updateOrCreate(
+        $aiContent = AiContent::updateOrCreate(
             [
                 'product_id' => $product->id,
                 'type'       => $type,
             ],
             [
-                'user_id'          => $product->user_id,
+                'user_id'           => $product->user_id,
                 'generated_content' => $content,
             ]
         );
+
+        Log::info([
+            'TYPE_SAVED_DB' => $aiContent->type,
+        ]);
+
+        return $aiContent;
     }
 
     private function buildPrompt(Product $product, string $type): string
