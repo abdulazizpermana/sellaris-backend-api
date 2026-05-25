@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Services\AiContentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class AIController extends Controller
@@ -33,6 +34,51 @@ class AIController extends Controller
         ]);
     }
 
+    // ─── TAMBAHAN: Generate semua konten sekaligus ────────────
+    public function generateAll(Request $request): JsonResponse
+    {
+        $request->validate([
+            'product_id' => ['required', 'integer', Rule::exists('products', 'id')],
+        ]);
+
+        $product = $this->findOwnedProduct($request, $request->product_id);
+
+        if (!$product) {
+            return $this->productNotFoundResponse();
+        }
+
+        $types   = ['caption', 'hashtag', 'marketplace', 'promo', 'translate', 'smart_reply'];
+        $results = [];
+        $errors  = [];
+
+        foreach ($types as $type) {
+            try {
+                $content        = $this->aiService->generateContent($product, $type);
+                $results[$type] = $content->generated_content;
+
+                // ← Tambah delay 2 detik antar request supaya tidak kena rate limit
+                sleep(2);
+            } catch (\Throwable $e) {
+                Log::error("generateAll error for type: $type", [
+                    'error'    => $e->getMessage(),
+                    'product'  => $product->id,
+                    'type'     => $type,
+                ]);
+                $errors[$type]  = $e->getMessage(); // ← tampilkan pesan error asli
+                $results[$type] = null;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Semua konten berhasil digenerate! 🤖✨',
+            'product' => $this->formatProductSummary($product),
+            'data'    => $results,
+            'errors'  => $errors,
+        ]);
+    }
+    // ─────────────────────────────────────────────────────────
+
     public function generateByFeature(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -46,19 +92,33 @@ class AIController extends Controller
             return $this->productNotFoundResponse();
         }
 
-        $generatedContents = collect($this->featureMap()[$validated['feature']])
-            ->mapWithKeys(function (string $type) use ($product) {
+        try {
+            $generatedContents = [];
+
+            foreach ($this->featureMap()[$validated['feature']] as $type) {
                 $content = $this->aiService->generateContent($product, $type);
+                $generatedContents[$type] = $content->generated_content;
+            }
 
-                return [$type => $content->generated_content];
-            });
+            return response()->json([
+                'success' => true,
+                'feature' => $validated['feature'],
+                'product' => $this->formatProductSummary($product),
+                'data'    => $generatedContents,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('generateByFeature error', [
+                'error'     => $e->getMessage(),
+                'product_id' => $product->id,
+                'feature'   => $validated['feature'],
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'feature' => $validated['feature'],
-            'product' => $this->formatProductSummary($product),
-            'data'    => $generatedContents,
-        ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal generate konten AI untuk fitur yang dipilih.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function history(Request $request, int $product_id): JsonResponse
@@ -72,10 +132,11 @@ class AIController extends Controller
         $latestContents = AiContent::query()
             ->where('product_id', $product->id)
             ->where('user_id', $request->user()->id)
-            ->latest()
+            ->orderByDesc('updated_at')
             ->get()
             ->groupBy('type')
-            ->map(fn($items) => new AiContentResource($items->first()));
+            ->map(fn($items) => AiContentResource::make($items->first()))
+            ->toArray();
 
         return response()->json([
             'success' => true,

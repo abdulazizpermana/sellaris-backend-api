@@ -49,4 +49,33 @@ class AiContentController extends Controller
             'data'    => new AiContentResource($aiContent),
         ]);
     }
+
+    public function generateAll(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        $product = Product::where('id', $request->product_id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $types   = ['caption', 'hashtag', 'marketplace', 'promo', 'translate', 'smart_reply'];
+        $results = [];
+
+        foreach ($types as $type) {
+            try {
+                $content = $this->aiService->generateContent($product, $type);
+                $results[$type] = $content->generated_content;
+            } catch (\Throwable $e) {
+                $results[$type] = null;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Semua konten berhasil digenerate! 🤖',
+            'data'    => $results,
+        ]);
+    }
 }

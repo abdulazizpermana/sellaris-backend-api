@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/ai/generate',            [AIController::class, 'generate']);
     Route::match(['get', 'post'], '/ai/generate-content', [AIController::class, 'generate']);
     Route::post('/ai/generate-by-feature', [AIController::class, 'generateByFeature']);
+    Route::post('/ai/generate-all', [AIController::class, 'generateAll']);
     Route::get('/ai/history/{product_id}', [AIController::class, 'history']);
 
     // Transactions
