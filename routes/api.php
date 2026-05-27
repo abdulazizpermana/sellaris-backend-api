@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/transactions/history',      [TransactionController::class, 'history']);      // ← BARU
     Route::get('/transactions/daily-report', [TransactionController::class, 'dailyReport']);
     Route::get('/reports/daily',             [TransactionController::class, 'dailyReport']);
+    Route::get('/reports/monthly',           [TransactionController::class, 'monthlyReport']);
     Route::post('/transactions',             [TransactionController::class, 'store']);
     Route::post('/create-transaction',       [TransactionController::class, 'store']);
 
