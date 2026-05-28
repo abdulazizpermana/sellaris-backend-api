@@ -14,7 +14,9 @@ class ProductResource extends JsonResource
             'price'         => (float) $this->price,
             'price_formatted' => 'Rp ' . number_format($this->price, 0, ',', '.'),
             'stock'         => $this->stock,
-            'image_url'     => $this->image_url,
+            'image_url'     => $this->image_url
+                ? url('/api/product-images/' . basename($this->image_url))
+                : null,
             'description'   => $this->description,
             'target_market' => $this->target_market,
             'is_active'     => $this->is_active,

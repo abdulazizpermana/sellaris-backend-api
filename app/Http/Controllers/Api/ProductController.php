@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Services\ProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 
 class ProductController extends Controller
 {
@@ -109,5 +110,14 @@ class ProductController extends Controller
             'success' => true,
             'message' => 'Produk berhasil dihapus.',
         ]);
+    }
+
+    public function image(string $filename): Response
+    {
+        $path = 'products/' . $filename;
+
+        abort_unless(Storage::disk('public')->exists($path), 404);
+
+        return response()->file(Storage::disk('public')->path($path));
     }
 }

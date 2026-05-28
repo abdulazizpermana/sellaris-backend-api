@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ProfileController;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
+Route::get('/product-images/{filename}', [ProductController::class, 'image']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
