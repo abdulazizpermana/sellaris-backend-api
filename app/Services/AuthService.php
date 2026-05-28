@@ -6,9 +6,12 @@ use App\Models\User;
 use App\Models\BusinessProfile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\NewAccessToken;
 
 class AuthService
 {
+    private const TOKEN_EXPIRES_IN_DAYS = 7;
+
     public function register(array $data): array
     {
         $user = User::create([
@@ -23,9 +26,9 @@ class AuthService
             'category'      => $data['category'],
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $this->createAccessToken($user);
 
-        return ['user' => $user->load('businessProfile'), 'token' => $token];
+        return ['user' => $user->load('businessProfile'), 'token' => $token->plainTextToken];
     }
 
     public function login(array $data): array
@@ -38,8 +41,19 @@ class AuthService
             ]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $user->tokens()->delete();
 
-        return ['user' => $user->load('businessProfile'), 'token' => $token];
+        $token = $this->createAccessToken($user);
+
+        return ['user' => $user->load('businessProfile'), 'token' => $token->plainTextToken];
+    }
+
+    private function createAccessToken(User $user): NewAccessToken
+    {
+        return $user->createToken(
+            'auth_token',
+            ['*'],
+            now()->addDays(self::TOKEN_EXPIRES_IN_DAYS)
+        );
     }
 }

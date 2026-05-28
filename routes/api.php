@@ -9,8 +9,8 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProfileController;
 
 // Public routes
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::get('/product-images/{filename}', [ProductController::class, 'image']);
 
 // Protected routes
@@ -26,10 +26,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/get-products',    [ProductController::class, 'index']);
 
     // AI Studio
-    Route::post('/ai/generate',            [AIController::class, 'generate']);
-    Route::match(['get', 'post'], '/ai/generate-content', [AIController::class, 'generate']);
-    Route::post('/ai/generate-by-feature', [AIController::class, 'generateByFeature']);
-    Route::post('/ai/generate-all', [AIController::class, 'generateAll']);
+    Route::post('/ai/generate',            [AIController::class, 'generate'])->middleware('throttle:10,1');
+    Route::match(['get', 'post'], '/ai/generate-content', [AIController::class, 'generate'])->middleware('throttle:10,1');
+    Route::post('/ai/generate-by-feature', [AIController::class, 'generateByFeature'])->middleware('throttle:10,1');
+    Route::post('/ai/generate-all', [AIController::class, 'generateAll'])->middleware('throttle:5,1');
     Route::get('/ai/history/{product_id}', [AIController::class, 'history']);
 
     // Transactions
