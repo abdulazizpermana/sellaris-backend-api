@@ -164,13 +164,26 @@ PROMPT,
             ]);
 
         if ($response->failed()) {
+            $status = $response->status();
+            $responseBody = $response->json();
+
             Log::error('Gemini API error', [
-                'status'   => $response->status(),
+                'status'   => $status,
                 'response' => $response->body(),
             ]);
 
-            throw new \Exception('Gagal menghubungi Gemini AI service.');
-            throw new \Exception('Gemini Error: ' . $response->body());
+            $errorStatus = strtoupper((string) data_get($responseBody, 'error.status', ''));
+            $errorMessage = strtoupper((string) data_get($responseBody, 'error.message', ''));
+
+            if ($status === 429 || $errorStatus === 'RESOURCE_EXHAUSTED' || str_contains($errorMessage, 'RESOURCE_EXHAUSTED')) {
+                throw new \RuntimeException('AI_LIMIT_EXCEEDED');
+            }
+
+            if ($status >= 500) {
+                throw new \RuntimeException('AI_SERVICE_UNAVAILABLE');
+            }
+
+            throw new \RuntimeException('Gagal menghubungi Gemini AI service.');
         }
 
         return $response->json('candidates.0.content.parts.0.text', $response->body());

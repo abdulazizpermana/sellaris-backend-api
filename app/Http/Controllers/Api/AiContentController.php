@@ -38,9 +38,26 @@ class AiContentController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            throw ValidationException::withMessages([
-                'ai' => 'Gagal membuat konten AI. Silakan coba lagi beberapa saat.',
-            ]);
+            if ($e->getMessage() === 'AI_LIMIT_EXCEEDED') {
+                return response()->json([
+                    'success' => false,
+                    'type' => 'AI_LIMIT',
+                    'message' => 'Limit generate AI hari ini sudah habis.',
+                ], 429);
+            }
+
+            if ($e->getMessage() === 'AI_SERVICE_UNAVAILABLE') {
+                return response()->json([
+                    'success' => false,
+                    'type' => 'AI_SERVICE_ERROR',
+                    'message' => 'Layanan AI sedang gangguan.',
+                ], 503);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan pada layanan AI.',
+            ], 500);
         }
 
         return response()->json([
@@ -62,6 +79,7 @@ class AiContentController extends Controller
 
         $types   = ['caption', 'hashtag', 'marketplace', 'promo', 'translate', 'smart_reply'];
         $results = [];
+        $errors = [];
 
         foreach ($types as $type) {
             try {
@@ -69,6 +87,11 @@ class AiContentController extends Controller
                 $results[$type] = $content->generated_content;
             } catch (\Throwable $e) {
                 $results[$type] = null;
+                $errors[$type] = $e->getMessage() === 'AI_LIMIT_EXCEEDED'
+                    ? 'AI_LIMIT_EXCEEDED'
+                    : ($e->getMessage() === 'AI_SERVICE_UNAVAILABLE'
+                        ? 'AI_SERVICE_UNAVAILABLE'
+                        : 'AI_GENERATION_FAILED');
             }
         }
 
@@ -76,6 +99,7 @@ class AiContentController extends Controller
             'success' => true,
             'message' => 'Semua konten berhasil digenerate! 🤖',
             'data'    => $results,
+            'errors'  => $errors,
         ]);
     }
 }
