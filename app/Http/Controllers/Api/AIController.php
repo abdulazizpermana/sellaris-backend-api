@@ -74,10 +74,10 @@ class AIController extends Controller
             return $this->productNotFoundResponse();
         }
 
-        $types   = ['caption', 'hashtag', 'marketplace', 'promo', 'translate', 'smart_reply'];
-        $results = [];
-        $errors  = [];
-        $limitCount = 0;
+        $types      = ['caption', 'hashtag', 'marketplace', 'promo', 'translate', 'smart_reply'];
+        $results    = [];
+        $errors     = [];
+        $errorCount = 0; // 💡 Diubah dari limitCount untuk menghitung semua jenis eror
 
         foreach ($types as $type) {
             try {
@@ -85,38 +85,55 @@ class AIController extends Controller
                 $results[$type] = $content->generated_content;
                 sleep(1); // delay antar request
             } catch (\Throwable $e) {
+                $message = strtolower($e->getMessage());
+
                 Log::error("generateAll error for type: $type", [
-                    'error'   => $e->getMessage(),
-                    'product' => $product->id,
+                    'error'          => $e->getMessage(),
+                    'normalized'     => $message,
+                    'product'        => $product->id,
+                    'classified_as'  => 'pending',
                 ]);
 
-                if ($this->isRateLimit($e->getMessage())) {
-                    $errors[$type] = 'AI_LIMIT_EXCEEDED';
-                    $limitCount++;
-                } else {
-                    $errors[$type] = $e->getMessage();
-                }
+                $errorCount++;
+
+                $isRateLimitError = $this->isRateLimit($e->getMessage())
+                    || str_contains($message, 'limit')
+                    || str_contains($message, 'quota')
+                    || str_contains($message, '429')
+                    || str_contains($message, 'exhausted');
+
+                $errors[$type] = $isRateLimitError
+                    ? 'AI_LIMIT_EXCEEDED'
+                    : 'AI_SERVER_ERROR';
 
                 $results[$type] = null;
             }
         }
 
-        // Kalau semua gagal karena rate limit → return 429
-        if ($limitCount === count($types)) {
+        // ─── 1. JIKA SEMUA FITUR GAGAL TOTAL ───────────────────────────────────
+        if ($errorCount === count($types)) {
+            $isRateLimitExceeded = in_array('AI_LIMIT_EXCEEDED', $errors, true);
+            $statusCode = $isRateLimitExceeded ? 429 : 500;
+
             return response()->json([
                 'success' => false,
-                'message' => 'Gemini AI limit harian tercapai. Coba lagi besok.',
-                'errors'  => ['ai' => 'AI_LIMIT_EXCEEDED'],
-            ], 429);
+                'message' => $isRateLimitExceeded
+                    ? 'Limit harian Gemini AI tercapai. Silakan coba lagi besok.'
+                    : 'Modul AI gagal merespons. Silakan coba lagi beberapa saat lagi.',
+                'errors'  => $errors,
+                'data'    => null,
+            ], $statusCode);
         }
 
+        // ─── 2. JIKA SEBAGIAN BERHASIL, SEBAGIAN GAGAL (PARTIAL SUCCESS) ───────
+        // Jika ada beberapa yang sukses, status tetap 200 agar Flutter bisa merender data yang berhasil
         return response()->json([
             'success' => true,
-            'message' => 'Semua konten berhasil digenerate! 🤖✨',
+            'message' => 'Konten AI berhasil diproses! 🤖✨',
             'product' => $this->formatProductSummary($product),
             'data'    => $results,
             'errors'  => $errors,
-        ]);
+        ], 200);
     }
 
     // ─── Generate By Feature ──────────────────────────────────
